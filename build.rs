@@ -49,13 +49,17 @@ fn compile_shader(path_buf: &std::path::PathBuf, shader_kind: shaderc::ShaderKin
 
     println!("compiling shader {:?}", path_buf);
 
+    let mut compiler_options =
+        shaderc::CompileOptions::new().expect("failed to create shader compiler options");
+    compiler_options.set_optimization_level(shaderc::OptimizationLevel::Performance);
+
     let spv = compiler
         .compile_into_spirv(
             &shader_str,
             shader_kind,
             &path_buf.to_str().unwrap(),
             "main",
-            None,
+            Some(&compiler_options),
         )
         .expect(&format!("failed to compile shader {:?}", path_buf));
 
