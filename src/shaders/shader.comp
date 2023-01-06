@@ -27,8 +27,8 @@ layout (set = 0, binding = 2) buffer C {
 // shared float sharedData[SHARED_DATA_SIZE];
 
 void main() {
-    uint row = gl_GlobalInvocationID.x;
-    uint col = gl_GlobalInvocationID.y;
+    uint row = gl_GlobalInvocationID.y;
+    uint col = gl_GlobalInvocationID.x;
 
     uint offset = N * row;
 
