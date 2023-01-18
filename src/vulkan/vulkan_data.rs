@@ -56,7 +56,9 @@ impl VulkanData {
             &instance,
             physical_device,
             &device,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            constants::DATA_SIZE as vk::DeviceSize,
+            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
 
         debug_utils.set_name(mem_buffer_a.buffer, "matrix A buffer");
@@ -67,7 +69,9 @@ impl VulkanData {
             &instance,
             physical_device,
             &device,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            constants::DATA_SIZE as vk::DeviceSize,
+            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
 
         debug_utils.set_name(mem_buffer_b.buffer, "matrix B buffer");
@@ -78,9 +82,9 @@ impl VulkanData {
             &instance,
             physical_device,
             &device,
-            vk::MemoryPropertyFlags::HOST_VISIBLE
-                | vk::MemoryPropertyFlags::HOST_COHERENT
-                | vk::MemoryPropertyFlags::HOST_CACHED,
+            constants::DATA_SIZE as vk::DeviceSize,
+            vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
         )?;
 
         debug_utils.set_name(mem_buffer_c.buffer, "matrix C buffer");
@@ -152,8 +156,11 @@ impl VulkanData {
         log::info!("cleaning vulkan data");
 
         unsafe {
+            self.device.destroy_query_pool(self.query_pool, None);
+
             self.device
                 .destroy_descriptor_pool(self.descriptor_pool, None);
+
             self.device.destroy_command_pool(self.command_pool, None);
             self.device.destroy_pipeline(self.pipeline, None);
 
@@ -183,9 +190,9 @@ impl VulkanData {
         }
     }
 
-    pub fn multiply(&self, a: &[f32], b: &[f32]) -> Result<&[f32], String> {
-        super::copy_data_to_buffer(&self.device, &self.mem_buffer_a, 0, a)?;
-        super::copy_data_to_buffer(&self.device, &self.mem_buffer_b, 0, b)?;
+    pub fn multiply(&self, a: &[f32], b: &[f32]) -> Result<Vec<f32>, String> {
+        super::copy_data_to_buffer(self, &self.mem_buffer_a, a)?;
+        super::copy_data_to_buffer(self, &self.mem_buffer_b, b)?;
 
         let start = std::time::Instant::now();
 
@@ -235,6 +242,9 @@ impl VulkanData {
                         .limits
                         .max_compute_work_group_count[1]
             );
+
+            self.device
+                .cmd_reset_query_pool(command_buffer, self.query_pool, 0, 2);
 
             self.device.cmd_write_timestamp(
                 command_buffer,
@@ -310,22 +320,11 @@ impl VulkanData {
             println!("vulkan time {}", duration.as_millis());
 
             // read the data back
-            let mapped_data_ptr = self
-                .device
-                .map_memory(
-                    self.mem_buffer_c.device_memory,
-                    0,
-                    self.mem_buffer_c.size,
-                    vk::MemoryMapFlags::empty(),
-                )
-                .map_err(|_| String::from("failed to map buffer memory"))?;
-
-            let data = std::slice::from_raw_parts(
-                mapped_data_ptr.cast::<f32>(),
-                constants::N * constants::N,
-            );
-
-            self.device.unmap_memory(self.mem_buffer_c.device_memory);
+            let data = super::read_data_from_buffer(
+                self,
+                &self.mem_buffer_c,
+                constants::DATA_SIZE as vk::DeviceSize,
+            )?;
 
             Ok(data)
         }

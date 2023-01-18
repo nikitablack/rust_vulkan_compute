@@ -94,6 +94,23 @@ fn check_device_suitability(
         ));
     }
 
+    if features.shader_int64 == 0 {
+        return Err(String::from("the device does not support shader int64"));
+    }
+
+    // features 2
+    let mut shader_clock_features = vk::PhysicalDeviceShaderClockFeaturesKHR::builder().build();
+    let mut features2 =
+        vk::PhysicalDeviceFeatures2::builder().push_next(&mut shader_clock_features);
+    unsafe { instance.get_physical_device_features2(physical_device, &mut features2) };
+
+    // needed for shader clock
+    if shader_clock_features.shader_device_clock == 0 {
+        return Err(String::from(
+            "the device does not support shader device clock",
+        ));
+    }
+
     check_required_device_extensions(instance, physical_device, required_extensions)?;
 
     Ok(())

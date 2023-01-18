@@ -1,7 +1,5 @@
 use ash::vk;
 
-use crate::constants;
-
 pub struct MemBuffer {
     pub buffer: vk::Buffer,
     pub device_memory: vk::DeviceMemory,
@@ -12,13 +10,13 @@ pub fn create_mem_buffer(
     instance: &ash::Instance,
     physical_device: vk::PhysicalDevice,
     device: &ash::Device,
+    size: vk::DeviceSize,
+    usage: vk::BufferUsageFlags,
     memory_flags: vk::MemoryPropertyFlags,
 ) -> Result<MemBuffer, String> {
-    log::info!("getting mem buffer");
+    log::info!("creating mem buffer");
 
-    let size = constants::DATA_SIZE as vk::DeviceSize;
-
-    let buffer = create_buffer(device, size, vk::BufferUsageFlags::STORAGE_BUFFER)?;
+    let buffer = create_buffer(device, size, usage)?;
 
     let memory_type =
         find_buffer_memory_type(instance, physical_device, device, buffer, memory_flags)?;

@@ -25,10 +25,17 @@ pub fn create_logical_device<'a>(
         queue_create_infos.push(info.build());
     }
 
-    // TODO pass features as parameter
     let features = vk::PhysicalDeviceFeatures::builder()
-        .tessellation_shader(true)
-        .fill_mode_non_solid(true)
+        .shader_int64(true)
+        .build();
+
+    let mut shader_clock_features = vk::PhysicalDeviceShaderClockFeaturesKHR::builder()
+        .shader_device_clock(true)
+        .build();
+
+    let mut features2 = vk::PhysicalDeviceFeatures2::builder()
+        .features(features)
+        .push_next(&mut shader_clock_features)
         .build();
 
     let device_extensions_raw = device_extensions
@@ -39,7 +46,8 @@ pub fn create_logical_device<'a>(
     let create_info = vk::DeviceCreateInfo::builder()
         .queue_create_infos(&queue_create_infos)
         .enabled_extension_names(&device_extensions_raw)
-        .enabled_features(&features);
+        .push_next(&mut features2)
+        .build();
 
     let device = unsafe {
         instance

@@ -1,6 +1,8 @@
 #version 450
 
 #extension GL_EXT_debug_printf : enable
+#extension GL_ARB_gpu_shader_int64 : enable
+#extension GL_EXT_shader_realtime_clock : enable
 
 layout(local_size_x_id = 0) in;
 layout(local_size_y_id = 1) in;
@@ -27,6 +29,8 @@ layout (set = 0, binding = 2) buffer C {
 // shared float sharedData[SHARED_DATA_SIZE];
 
 void main() {
+    uint64_t timeStart = clockRealtimeEXT();
+
     uint row = gl_GlobalInvocationID.y;
     uint col = gl_GlobalInvocationID.x;
 
@@ -41,9 +45,18 @@ void main() {
 
     c[offset + col] = result;
 
-    // if(row == 0 && col == 0)
-    // {
-    //     debugPrintfEXT("gl_WorkGroupSize %i %i %i\n", gl_WorkGroupSize.x, gl_WorkGroupSize.y, gl_WorkGroupSize.z);
-    //     debugPrintfEXT("gl_NumWorkGroups %i %i %i\n", gl_NumWorkGroups.x, gl_NumWorkGroups.y, gl_NumWorkGroups.z);
-    // }
+    uint64_t timeEnd = clockRealtimeEXT();
+    uint64_t timeDiff = timeEnd >= timeStart ? (timeEnd - timeStart) : 0;
+
+    if(row < 5 && col < 5)
+    {
+        debugPrintfEXT("clock %u\n", timeDiff);
+    }
+
+    if(row == 0 && col == 0)
+    {
+        debugPrintfEXT("gl_WorkGroupSize %u %u %u\n", gl_WorkGroupSize.x, gl_WorkGroupSize.y, gl_WorkGroupSize.z);
+        debugPrintfEXT("gl_NumWorkGroups %u %u %u\n", gl_NumWorkGroups.x, gl_NumWorkGroups.y, gl_NumWorkGroups.z);
+        debugPrintfEXT("N %u\n", N);
+    }
 }

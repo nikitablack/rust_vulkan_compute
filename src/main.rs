@@ -11,7 +11,7 @@ use rand::Rng;
 fn main() {
     // logger
     let mut loggers: Vec<Box<dyn simplelog::SharedLogger>> = vec![simplelog::TermLogger::new(
-        simplelog::LevelFilter::Info,
+        simplelog::LevelFilter::Off,
         simplelog::Config::default(),
         simplelog::TerminalMode::Mixed,
         simplelog::ColorChoice::Auto,
@@ -36,7 +36,10 @@ fn main() {
 
     println!("{:?}", c);
 
-    let device_extensions = vec![ash::vk::KhrShaderNonSemanticInfoFn::name()];
+    let device_extensions = vec![
+        ash::vk::KhrShaderNonSemanticInfoFn::name(),
+        ash::vk::KhrShaderClockFn::name(),
+    ];
     let instance_extensions = vec![ash::extensions::ext::DebugUtils::name()];
 
     let vulkan_data = match VulkanData::new(&instance_extensions, &device_extensions) {
@@ -68,7 +71,7 @@ fn main() {
 
         let duration = start.elapsed();
 
-        println!("total time {}", duration.as_millis());
+        println!("total time {}\n", duration.as_millis());
     }
 
     vulkan_data.clean();

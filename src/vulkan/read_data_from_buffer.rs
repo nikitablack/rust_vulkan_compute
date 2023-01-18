@@ -1,14 +1,13 @@
-use crate::vulkan::MemBuffer;
+use crate::{constants, vulkan::MemBuffer};
 use ash::vk;
 
 use super::VulkanData;
 
-pub fn copy_data_to_buffer(
+pub fn read_data_from_buffer(
     vulkan_data: &VulkanData,
     mem_buffer: &MemBuffer,
-    data: &[f32],
-) -> Result<(), String> {
-    let size = (data.len() * std::mem::size_of::<f32>()) as vk::DeviceSize;
+    size: vk::DeviceSize,
+) -> Result<Vec<f32>, String> {
     assert!(size <= mem_buffer.size);
 
     // create staging buffer
@@ -17,38 +16,11 @@ pub fn copy_data_to_buffer(
         vulkan_data.physical_device,
         &vulkan_data.device,
         size,
-        vk::BufferUsageFlags::TRANSFER_SRC,
-        vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+        vk::BufferUsageFlags::TRANSFER_DST,
+        vk::MemoryPropertyFlags::HOST_VISIBLE
+            | vk::MemoryPropertyFlags::HOST_COHERENT
+            | vk::MemoryPropertyFlags::HOST_CACHED,
     )?;
-
-    // copy data to staging buffer
-    let mapped_data_ptr = unsafe {
-        vulkan_data
-            .device
-            .map_memory(
-                staging_mem_buffer.device_memory,
-                0,
-                size,
-                vk::MemoryMapFlags::empty(),
-            )
-            .map_err(|_| String::from("failed to map buffer memory"))?
-    };
-
-    let mut data_slice = unsafe {
-        ash::util::Align::new(
-            mapped_data_ptr,
-            std::mem::align_of::<f32>() as vk::DeviceSize,
-            size,
-        )
-    };
-
-    data_slice.copy_from_slice(data);
-
-    unsafe {
-        vulkan_data
-            .device
-            .unmap_memory(staging_mem_buffer.device_memory);
-    }
 
     // allocate command buffer
     let command_buffer = super::allocate_command_buffer(vulkan_data)?;
@@ -62,8 +34,8 @@ pub fn copy_data_to_buffer(
     unsafe {
         vulkan_data.device.cmd_copy_buffer(
             command_buffer,
-            staging_mem_buffer.buffer,
             mem_buffer.buffer,
+            staging_mem_buffer.buffer,
             &[buffer_copy],
         );
 
@@ -87,16 +59,6 @@ pub fn copy_data_to_buffer(
 
     // clean
     unsafe {
-        // destroy buffer
-        vulkan_data
-            .device
-            .destroy_buffer(staging_mem_buffer.buffer, None);
-
-        // free memory
-        vulkan_data
-            .device
-            .free_memory(staging_mem_buffer.device_memory, None);
-
         // free command buffer
         vulkan_data
             .device
@@ -112,5 +74,36 @@ pub fn copy_data_to_buffer(
             .map_err(|_| String::from("failed to reset command pool"))?;
     }
 
-    Ok(())
+    // read the data back
+    unsafe {
+        let mapped_data_ptr = vulkan_data
+            .device
+            .map_memory(
+                staging_mem_buffer.device_memory,
+                0,
+                staging_mem_buffer.size,
+                vk::MemoryMapFlags::empty(),
+            )
+            .map_err(|_| String::from("failed to map buffer memory"))?;
+
+        let data =
+            std::slice::from_raw_parts(mapped_data_ptr.cast::<f32>(), constants::N * constants::N)
+                .to_owned();
+
+        vulkan_data
+            .device
+            .unmap_memory(staging_mem_buffer.device_memory);
+
+        // destroy buffer
+        vulkan_data
+            .device
+            .destroy_buffer(staging_mem_buffer.buffer, None);
+
+        // free memory
+        vulkan_data
+            .device
+            .free_memory(staging_mem_buffer.device_memory, None);
+
+        Ok(data)
+    }
 }
