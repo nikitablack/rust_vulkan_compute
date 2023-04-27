@@ -31,11 +31,12 @@ pub fn create_pipeline(
 
     let map_entries = [map_entry_0, map_entry_1, map_entry_2];
 
-    let data_0 = constants::WORKGROUP_SIZE.to_ne_bytes();
-    let data_1 = constants::WORKGROUP_SIZE.to_ne_bytes();
-    let data_2 = 1u32.to_ne_bytes();
+    let data_0 = constants::WORKGROUP_SIZE.to_ne_bytes(); // local_size_x_id
+    let data_1 = constants::WORKGROUP_SIZE.to_ne_bytes(); // local_size_y_id
+    let data_2 = 1u32.to_ne_bytes(); // local_size_z_id
+    let data_3 = constants::WORKGROUP_SIZE.to_ne_bytes(); // shared memory element count X and Y
 
-    let data = [data_0, data_1, data_2].concat();
+    let data = [data_0, data_1, data_2, data_3].concat();
 
     let specialization_info = vk::SpecializationInfo::builder()
         .map_entries(&map_entries)

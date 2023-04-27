@@ -7,7 +7,7 @@
 layout(local_size_x_id = 0) in;
 layout(local_size_y_id = 1) in;
 layout(local_size_z_id = 2) in;
-// layout(constant_id = 3) const int SHARED_DATA_SIZE = 512;
+layout(constant_id = 3) const int BLOCK_SIZE = 16;
 
 layout(push_constant) uniform PushConst
 {
@@ -26,12 +26,50 @@ layout (set = 0, binding = 2) buffer C {
     float c[];
 };
 
-// shared float sharedData[SHARED_DATA_SIZE];
+shared float sharedDataA[BLOCK_SIZE][BLOCK_SIZE];
+shared float sharedDataB[BLOCK_SIZE][BLOCK_SIZE];
 
 void main() {
-    uint64_t timeStart = clockRealtimeEXT();
+    const uint bx = gl_WorkGroupID.x;
+    const uint by = gl_WorkGroupID.y;
+    const uint tx = gl_LocalInvocationID.x;
+    const uint ty = gl_LocalInvocationID.y;
 
-    uint row = gl_GlobalInvocationID.y;
+    const uint row = by * BLOCK_SIZE + ty;
+    const uint col = bx * BLOCK_SIZE + tx;
+
+    float result = 0.0f;
+
+    const uint offset = N * row;
+
+    for (uint pass = 0; pass < N / BLOCK_SIZE; ++pass)
+    {
+        sharedDataA[ty][tx] = a[offset + pass * BLOCK_SIZE + tx];
+        sharedDataB[ty][tx] = b[(pass * BLOCK_SIZE + ty) * N + col];
+  
+        barrier();
+  
+        for (uint k = 0; k < BLOCK_SIZE; ++k)
+        {
+          result += sharedDataA[ty][k] * sharedDataB[k][tx];
+        }
+  
+        barrier();
+    }
+
+    c[offset + col] = result;
+
+
+
+
+
+
+
+
+  ///////////////////////////////////////////////
+    // uint64_t timeStart = clockRealtimeEXT();
+
+    /*uint row = gl_GlobalInvocationID.y;
     uint col = gl_GlobalInvocationID.x;
 
     uint offset = N * row;
@@ -43,20 +81,20 @@ void main() {
       result += a[offset + s] * b[col + s * N];
     }
 
-    c[offset + col] = result;
+    c[offset + col] = result;*/
 
-    uint64_t timeEnd = clockRealtimeEXT();
-    uint64_t timeDiff = timeEnd >= timeStart ? (timeEnd - timeStart) : 0;
+    // uint64_t timeEnd = clockRealtimeEXT();
+    // uint64_t timeDiff = timeEnd >= timeStart ? (timeEnd - timeStart) : 0;
 
-    if(row < 5 && col < 5)
-    {
-        debugPrintfEXT("clock %u\n", timeDiff);
-    }
+    // if(row < 5 && col < 5)
+    // {
+    //     debugPrintfEXT("clock %u\n", timeDiff);
+    // }
 
-    if(row == 0 && col == 0)
-    {
-        debugPrintfEXT("gl_WorkGroupSize %u %u %u\n", gl_WorkGroupSize.x, gl_WorkGroupSize.y, gl_WorkGroupSize.z);
-        debugPrintfEXT("gl_NumWorkGroups %u %u %u\n", gl_NumWorkGroups.x, gl_NumWorkGroups.y, gl_NumWorkGroups.z);
-        debugPrintfEXT("N %u\n", N);
-    }
+    // if(row == 0 && col == 0)
+    // {
+    //     debugPrintfEXT("gl_WorkGroupSize %u %u %u\n", gl_WorkGroupSize.x, gl_WorkGroupSize.y, gl_WorkGroupSize.z);
+    //     debugPrintfEXT("gl_NumWorkGroups %u %u %u\n", gl_NumWorkGroups.x, gl_NumWorkGroups.y, gl_NumWorkGroups.z);
+    //     debugPrintfEXT("N %u\n", N);
+    // }
 }

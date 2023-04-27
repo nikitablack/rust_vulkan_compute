@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 ash = { version = "0.37.0", default-features = false, features = ["linked"] }
 log = "0.4"
+nalgebra = "0.31.4"
 rand = "0.8.5"
 simplelog = "0.12.0"
 
